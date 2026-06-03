@@ -2,63 +2,54 @@ import telebot
 import requests
 import os
 
-bot = telebot.TeleBot(os.environ.get('API_TOKEN'))
-API_KEY = "ضعي_مفتاحك_هنا"
+# الاتصال بالبوت
+TOKEN = os.environ.get('API_TOKEN')
+bot = telebot.TeleBot(TOKEN)
+
+# تم وضع مفتاح الـ API الخاص بكِ هنا
+API_KEY = "65361371be2f02279470ed1387d7" 
 API_URL = "https://xklash.com/api/v2"
 
-# 1. عرض زر الشراء
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = telebot.types.InlineKeyboardMarkup()
-    # زر شراء 100 عضو بـ 13 نجمة
-    btn = telebot.types.InlineKeyboardButton("اشترِ 100 عضو بـ 13 نجمة ⭐", callback_data="buy_100")
+    btn = telebot.types.InlineKeyboardButton("طلب تمويل 100 عضو", callback_data="buy_100")
     markup.add(btn)
-    bot.send_message(message.chat.id, "أهلاً بك! اختر خدمتك:", reply_markup=markup)
+    bot.send_message(message.chat.id, "أهلاً بك في متجر تمويل ليغاندوسكي! اختر خدمتك:", reply_markup=markup)
 
-# 2. معالجة طلب الشراء (هذا هو الكود المحدث)
 @bot.callback_query_handler(func=lambda call: call.data == "buy_100")
-def buy_stars(call):
-    # هذا السطر يخبر تليجرام أننا استلمنا الضغطة بنجاح
-    bot.answer_callback_query(call.id, text="جاري تجهيز الفاتورة...")
-    
-    # إنشاء فاتورة دفع بالنجوم
-    bot.send_invoice(
-        call.message.chat.id,
-        title="تمويل 100 عضو",
-        description="خدمة إضافة 100 عضو لقناتك بسرعة",
-        invoice_payload="order_100_members",
-        currency="XTR",
-        prices=[telebot.types.LabeledPrice("100 عضو", 13)] 
-    )
+def buy_info(call):
+    bot.answer_callback_query(call.id, text="جاري التحويل...")
+    bot.send_message(call.message.chat.id, 
+        "⭐ لطلب 100 عضو بـ 13 نجمة:\n\n"
+        "1. قم بتحويل المقابل المادي لحسابي: @Jama2006A82\n"
+        "2. بعد التحويل، أرسل كلمة 'تم التحويل' هنا.\n"
+        "3. سأطلب منك رابط قناتك فوراً لتمويلها.")
 
-    # إنشاء فاتورة دفع بالنجوم
-    bot.send_invoice(
-        call.message.chat.id,
-        title="تمويل 100 عضو",
-        description="خدمة إضافة 100 عضو لقناتك بسرعة",
-        invoice_payload="order_100_members",
-        currency="XTR", # عملة نجوم تليجرام
-        prices=[telebot.types.LabeledPrice("100 عضو", 13)] # 13 نجمة
-    )
+@bot.message_handler(func=lambda message: message.text == "تم التحويل")
+def ask_for_link(message):
+    bot.reply_to(message, "✅ ممتاز! أرسل الآن رابط القناة التي تريد تمويلها:")
 
-# 3. معالجة نجاح الدفع وإرسال الطلب لـ xklash
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def checkout(query):
-    bot.answer_pre_checkout_query(query.id, ok=True)
-
-@bot.message_handler(content_types=['successful_payment'])
-def payment_success(message):
-    bot.reply_to(message, "✅ تم الدفع بنجاح! أرسلي الآن رابط القناة التي تريدين تمويلها:")
-    
-    # بعد إرسال الرابط، يتم تفعيل كود الـ API الذي كتبناه سابقاً
-    @bot.message_handler(func=lambda m: "t.me" in m.text)
-    def send_to_xklash(m):
-        data = {'key': API_KEY, 'action': 'add', 'service': 50, 'link': m.text, 'quantity': 100}
+@bot.message_handler(func=lambda m: "t.me" in m.text)
+def send_to_xklash(m):
+    data = {
+        'key': API_KEY,
+        'action': 'add',
+        'service': 50, 
+        'link': m.text,
+        'quantity': 100
+    }
+    try:
         res = requests.post(API_URL, data=data).json()
-        bot.reply_to(m, f"✅ تم إرسال طلبك للتمويل! رقم الطلب: {res.get('order')}")
+        if 'order' in res:
+            bot.reply_to(m, f"✅ تم إرسال الطلب للموقع بنجاح! رقم الطلب: {res['order']}")
+        else:
+            bot.reply_to(m, f"❌ خطأ: {res.get('error', 'تأكد من رصيدك في الموقع')}")
+    except Exception as e:
+        bot.reply_to(m, "❌ حدث خطأ تقني.")
 
-print("البوت بدأ العمل الآن يا Najah!")
 bot.infinity_polling()
+
 
 
 
