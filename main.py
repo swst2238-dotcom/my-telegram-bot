@@ -15,9 +15,22 @@ def start(message):
     markup.add(btn)
     bot.send_message(message.chat.id, "أهلاً بك! اختر خدمتك:", reply_markup=markup)
 
-# 2. معالجة طلب الشراء
+# 2. معالجة طلب الشراء (هذا هو الكود المحدث)
 @bot.callback_query_handler(func=lambda call: call.data == "buy_100")
 def buy_stars(call):
+    # هذا السطر يخبر تليجرام أننا استلمنا الضغطة بنجاح
+    bot.answer_callback_query(call.id, text="جاري تجهيز الفاتورة...")
+    
+    # إنشاء فاتورة دفع بالنجوم
+    bot.send_invoice(
+        call.message.chat.id,
+        title="تمويل 100 عضو",
+        description="خدمة إضافة 100 عضو لقناتك بسرعة",
+        invoice_payload="order_100_members",
+        currency="XTR",
+        prices=[telebot.types.LabeledPrice("100 عضو", 13)] 
+    )
+
     # إنشاء فاتورة دفع بالنجوم
     bot.send_invoice(
         call.message.chat.id,
