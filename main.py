@@ -44,6 +44,10 @@ def payment_success(message):
         res = requests.post(API_URL, data=data).json()
         bot.reply_to(m, f"✅ تم إرسال طلبك للتمويل! رقم الطلب: {res.get('order')}")
 
+print("البوت بدأ العمل الآن يا Najah!")
+bot.infinity_polling()
+
+
 
 
 
