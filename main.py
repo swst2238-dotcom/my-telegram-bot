@@ -1,49 +1,39 @@
 import os
-from pyrogram import Client
-from telebot import TeleBot, types
-import threading
+import telebot
+from telebot import types
 
-# 1. إعدادات البوت (موظف الاستقبال)
-BOT_TOKEN = os.environ.get('API_TOKEN')
-bot = TeleBot(BOT_TOKEN)
+# جلب التوكن من الإعدادات
+TOKEN = os.environ.get('API_TOKEN')
+bot = telebot.TeleBot(TOKEN)
 
-# 2. إعدادات حساب التمويل (فريق التنفيذ)
-# ضعي هنا الأرقام التي حصلتِ عليها من my.telegram.org
-API_ID = 1234567 
-API_HASH = "هنا_الـ_hash_الخاص_بك"
-
-# تهيئة حساب التمويل
-app = Client("my_session", api_id=API_ID, api_hash=API_HASH)
-
-# دالة حفظ الرابط في ملف
-def save_link(link):
-    with open("channels.txt", "a") as f:
-        f.write(link + "\n")
-
-# --- أوامر البوت ---
+# القائمة الرئيسية
 @bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id, "أهلاً في بوت ليفاندوسكي 🔥9\nأرسلي رابط القناة للتمويل:")
+def send_welcome(message):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn1 = types.InlineKeyboardButton("➕ زيادة أعضاء", callback_data="add_members")
+    btn2 = types.InlineKeyboardButton("📊 إحصائيات", callback_data="stats")
+    btn3 = types.InlineKeyboardButton("⚙️ إعدادات", callback_data="settings")
+    btn4 = types.InlineKeyboardButton("📞 تواصل مع الدعم", callback_data="support")
+    markup.add(btn1, btn2, btn3, btn4)
+    bot.send_message(message.chat.id, "أهلاً بك في بوت تمويل ليفاندوسكي 🔥9\nاختاري الخدمة المطلوبة:", reply_markup=markup)
 
+# الرد على الأزرار
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "add_members":
+        bot.answer_callback_query(call.id, "جاري فتح طلب التمويل...")
+        bot.send_message(call.message.chat.id, "💡 يرجى إرسال رابط القناة الآن:")
+    else:
+        bot.answer_callback_query(call.id, "قيد التطوير...")
+
+# حفظ الرابط عند إرساله
 @bot.message_handler(func=lambda message: "t.me" in message.text)
 def handle_link(message):
-    link = message.text
-    save_link(link) # حفظ الرابط في الملف
     bot.reply_to(message, "✅ تم استلام الرابط، جاري إضافته لقائمة التمويل...")
 
-# --- وظيفة التمويل (فريق التنفيذ) ---
-def run_funding_task():
-    # هذا السكربت يقرأ الملف وينفذ التمويل
-    # سنقوم لاحقاً بتشغيل هذا الجزء كعملية منفصلة
-    print("فريق التمويل مستعد للعمل...")
+print("البوت يعمل الآن...")
+bot.polling()
 
-# تشغيل البوت في مسار منفصل
-def start_bot():
-    bot.polling()
-
-if __name__ == "__main__":
-    # تشغيل البوت
-    threading.Thread(target=start_bot).start()
 
 
 
