@@ -8,63 +8,42 @@ bot = telebot.TeleBot(TOKEN)
 API_KEY = "b31916beaf30a275e6195d4ba79941a2"
 API_URL = "https://xklash.com/api/v2"
 
-# قائمة الكميات والأسعار (يمكنك تعديل الأسعار هنا)
-# {الكمية: السعر بالنجوم}
-OPTIONS = {
-    "10": 1,
-    "50": 4,
-    "100": 7,
-    "500": 30
-}
+# دالة لجلب الرصيد الحالي من الموقع
+def get_balance():
+    data = {'key': API_KEY, 'action': 'balance'}
+    res = requests.post(API_URL, data=data).json()
+    return float(res.get('balance', 0))
 
-# تخزين مؤقت للكمية المختارة
-user_qty = {}
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    buttons = [telebot.types.InlineKeyboardButton(f"{qty} عضو بـ {price} نجمة", callback_data=f"qty_{qty}") 
-               for qty, price in OPTIONS.items()]
-    markup.add(*buttons)
-    bot.send_message(message.chat.id, "مرحباً بك في متجر ليغاندوسكي!\nاختر عدد الأعضاء الذي تريده:", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("qty_"))
-def select_qty(call):
-    qty = call.data.split("_")[1]
-    price = OPTIONS[qty]
-    user_qty[call.message.chat.id] = qty
-    
-    bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, 
-        f"✅ اخترت {qty} عضو.\n💰 المطلوب تحويل: {price} نجمة.\n\n"
-        f"بعد التحويل لحسابي @Jama2006A82، أرسل رابط قناتك هنا للبدء.")
+@bot.message_handler(commands=['balance'])
+def check_balance(message):
+    balance = get_balance()
+    bot.reply_to(message, f"💰 رصيدك الحالي في الموقع هو: {balance} دولار.")
 
 @bot.message_handler(func=lambda m: "t.me" in m.text)
-def execute_order(m):
-    qty = user_qty.get(m.chat.id)
-    if not qty:
-        bot.reply_to(m, "❌ يرجى اختيار الكمية من الأزرار أولاً عبر كتابة /start")
+def auto_order(m):
+    balance = get_balance()
+    # هنا نفترض تكلفة الطلب (مثلاً 0.5 دولار)
+    cost = 0.5 
+    
+    if balance < cost:
+        bot.reply_to(m, "⚠️ عذراً، الخدمة متوقفة حالياً للصيانة. يرجى التواصل مع الإدارة.")
         return
 
-    bot.reply_to(m, f"⏳ جاري تمويل طلبك ({qty} عضو)...")
+    bot.reply_to(m, "⏳ جاري تنفيذ طلبك...")
     
     data = {
         'key': API_KEY,
         'action': 'add',
-        'service': 16225, # الخدمة المطلوبة
+        'service': 16225,
         'link': m.text,
-        'quantity': int(qty)
+        'quantity': 100
     }
     
-    try:
-        res = requests.post(API_URL, data=data).json()
-        if 'order' in res:
-            bot.reply_to(m, f"✅ تم التنفيذ بنجاح! رقم الطلب: {res['order']}")
-            del user_qty[m.chat.id] # مسح الطلب بعد التنفيذ
-        else:
-            bot.reply_to(m, f"❌ خطأ من الموقع: {res}")
-    except Exception as e:
-        bot.reply_to(m, f"❌ خطأ تقني: {e}")
+    res = requests.post(API_URL, data=data).json()
+    if 'order' in res:
+        bot.reply_to(m, f"✅ تم التنفيذ بنجاح! رقم الطلب: {res['order']}")
+    else:
+        bot.reply_to(m, f"❌ خطأ تقني: {res}")
 
 bot.infinity_polling()
 
