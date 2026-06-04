@@ -5,6 +5,9 @@ TOKEN = '8822332836:AAENA3zWg6PuGq07QgmxbrlTu6GqYBZuQV0'
 ADMIN_ID = '5531196107'
 bot = TeleBot(TOKEN)
 
+bot.remove_webhook() # يمسح أي ربط قديم معلق
+
+
 # جدول الأسعار: العدد مقابل النجوم
 prices = {
     100: 10, 200: 20, 300: 30, 400: 40,
