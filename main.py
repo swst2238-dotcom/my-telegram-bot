@@ -1,40 +1,56 @@
-# 1. استبدلي الزر في دالة start (غيرنا كلمة buy_100 إلى new_order)
-btn = telebot.types.InlineKeyboardButton("طلب تمويل 100 عضو", callback_data="new_order")
+import telebot
+import requests
+import os
 
-# 2. استبدلي دالة المعالجة بهذا الكود (غيرنا الاسم لـ new_order)
-@bot.callback_query_handler(func=lambda call: call.data == "new_order")
-def buy_info(call):
+# الاتصال بالبوت
+TOKEN = os.environ.get('API_TOKEN')
+bot = telebot.TeleBot(TOKEN)
 
-# 1. استقبال كلمة "تم التحويل"
-@bot.message_handler(func=lambda message: message.text == "تم التحويل")
-def ask_for_screenshot(message):
-    bot.send_message(message.chat.id, "✅ تمام، أرسلي صورة (سكرين شوت) للتحويل الآن.")
+API_KEY = "65361371be2f02279470ed1387d7"
+API_URL = "https://xklash.com/api/v2"
 
-# 2. استقبال الصورة وإرسالها لك للمراجعة
-@bot.message_handler(content_types=['photo'])
-def handle_photo(message):
-    # رقم الـ ID الخاص بك (يجب أن تعرفيه)
-    YOUR_ID = 'YOUR_TELEGRAM_ID_HERE' 
-    
-    # إرسال الصورة لك
-    bot.send_photo(YOUR_ID, message.photo[-1].file_id, caption=f"طلب جديد من المستخدم: {message.chat.id}")
-    bot.send_message(YOUR_ID, "هل تم استلام المبلغ؟", reply_markup=create_admin_buttons(message.chat.id))
-    
-    bot.send_message(message.chat.id, "⏳ جاري مراجعة التحويل من قبل الإدارة، لحظات وسيبدأ التمويل.")
-
-# 3. أزرار التحكم لكِ (بصفتك الأدمن)
-def create_admin_buttons(user_id):
+@bot.message_handler(commands=['start'])
+def start(message):
     markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(telebot.types.InlineKeyboardButton("تم الاستلام (ابدأ التمويل)", callback_data=f"approve_{user_id}"))
-    return markup
+    # تغيير اسم الزر لكسر الذاكرة المؤقتة
+    btn = telebot.types.InlineKeyboardButton("بدء طلب التمويل الآن", callback_data="start_proc")
+    markup.add(btn)
+    bot.send_message(message.chat.id, "مرحباً بك! اضغط الزر أدناه لبدء الطلب:", reply_markup=markup)
 
-    # هذا السطر ينهي التفاعل تماماً ويمنع تعليق الرسالة
-    bot.answer_callback_query(call.id)
+@bot.callback_query_handler(func=lambda call: call.data == "start_proc")
+def process_step(call):
+    # مسح حالة "جاري التحميل" القديمة
+    bot.answer_callback_query(call.id, text="جاري الفتح...")
     bot.send_message(call.message.chat.id, 
         "⭐ لطلب 100 عضو:\n\n"
         "1. قم بتحويل المقابل المادي لحسابي: @Jama2006A82\n"
-        "2. بعد التحويل، أرسل كلمة 'تم التحويل' هنا.\n"
-        "3. سأطلب منك رابط قناتك فوراً.")
+        "2. بعد التحويل، أرسل كلمة 'تم التحويل' هنا.")
+
+@bot.message_handler(func=lambda message: message.text == "تم التحويل")
+def ask_for_link(message):
+    bot.reply_to(message, "✅ ممتاز! أرسل الآن رابط القناة التي تريد تمويلها وسأبدأ فوراً:")
+
+@bot.message_handler(func=lambda m: "t.me" in m.text)
+def send_to_xklash(m):
+    bot.reply_to(m, "⏳ جارٍ الإرسال للموقع...")
+    data = {
+        'key': API_KEY,
+        'action': 'add',
+        'service': 50, 
+        'link': m.text,
+        'quantity': 100
+    }
+    try:
+        res = requests.post(API_URL, data=data).json()
+        if 'order' in res:
+            bot.reply_to(m, f"✅ تم تنفيذ الطلب! رقم الطلب: {res['order']}")
+        else:
+            bot.reply_to(m, "❌ خطأ في تنفيذ الطلب، تأكد من الرصيد في الموقع.")
+    except Exception as e:
+        bot.reply_to(m, "❌ حدث خطأ تقني.")
+
+bot.infinity_polling()
+
 
 
 
