@@ -1,44 +1,51 @@
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 import os
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup
 
 TOKEN = os.environ.get('API_TOKEN')
 bot = telebot.TeleBot(TOKEN)
-CRYPTO_TOKEN = "591551:AAaCLeCJ3KRPZbR6Cj6Dg1eqq1iLisbkz7P"
+ADMIN_ID = "5531196107"
+API_KEY = "b31916beaf30a275e6195d4ba79941a2"
+API_URL = "https://xklash.com/api/v2"
 
+# القائمة الرئيسية للخدمات
 def main_menu():
     markup = InlineKeyboardMarkup()
-    buttons = [InlineKeyboardButton(f"خـدمة {i}", callback_data=f"service_{i}") for i in range(1, 21)]
-    for i in range(0, 20, 4):
-        markup.row(*buttons[i:i+4])
+    markup.add(InlineKeyboardButton("✅ 100 عضو (2$)", callback_data="buy_100"))
+    markup.add(InlineKeyboardButton("✅ 200 عضو (4$)", callback_data="buy_200"))
+    markup.add(InlineKeyboardButton("✅ 400 عضو (8$)", callback_data="buy_400"))
     return markup
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("🛒 المتجر", "💳 شحن الرصيد")
-    bot.send_message(message.chat.id, "🔥 بوت ليفاندوسكي 9 جاهز", reply_markup=kb)
+    bot.send_message(message.chat.id, "مرحباً بك في بوت ليفاندوسكي 9.\nاختر الخدمة للبدء:", reply_markup=main_menu())
 
-@bot.message_handler(func=lambda m: m.text == "🛒 المتجر")
-def shop(message):
-    bot.send_message(message.chat.id, "قائمة الخدمات:", reply_markup=main_menu())
+# عند اختيار خدمة
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def buy_service(call):
+    qty = call.data.split("_")[1]
+    bot.send_message(call.message.chat.id, f"لقد اخترت {qty} عضو.\nالآن أرسل رابط القناة والـ TxID الخاص بدفع USDT (شبكة TRC20).")
 
-@bot.message_handler(func=lambda m: m.text == "💳 شحن الرصيد")
-def deposit(message):
-    # استخدام requests مباشرة بدلاً من المكتبة المعقدة
-    headers = {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
-    data = {'asset': 'USDT', 'amount': '1'}
-    try:
-        response = requests.post('https://pay.crypt.bot/api/createInvoice', headers=headers, json=data).json()
-        pay_url = response['result']['pay_url']
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("💰 ادفع الآن", url=pay_url))
-        bot.reply_to(message, "اضغط للدفع:", reply_markup=markup)
-    except:
-        bot.reply_to(message, "خطأ في الاتصال بالسيرفر")
+# استقبال الـ TxID
+@bot.message_handler(func=lambda m: len(m.text) > 10)
+def get_txid(message):
+    # إرسال طلب للأدمن (أنتِ)
+    msg = f"🚨 طلب جديد من {message.from_user.id}\nالرسالة: {message.text}"
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("✅ قبول وتفعيل الطلب", callback_data=f"accept_{message.chat.id}"))
+    bot.send_message(ADMIN_ID, msg, reply_markup=markup)
+    bot.reply_to(message, "تم استلام بياناتك، الإدارة تراجع الطلب الآن.")
 
-bot.infinity_polling(none_stop=True)
+# تأكيد الأدمن
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
+def accept(call):
+    user_id = call.data.split("_")[1]
+    bot.send_message(user_id, "✅ تم قبول الطلب! جاري التنفيذ.")
+    bot.edit_message_text("تم تفعيل الطلب.", call.message.chat.id, call.message.message_id)
+
+bot.infinity_polling()
+
 
 
 
