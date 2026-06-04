@@ -2,77 +2,69 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 import requests
 import os
+# تأكدي من وجود مكتبة py-cryptopay في ملف requirements.txt
+from pycricryptopay import CryptoPay 
 
-# إعداد البوت
+# إعدادات البوت والتوكن
 TOKEN = os.environ.get('API_TOKEN')
 bot = telebot.TeleBot(TOKEN)
+# التوكن الخاص بكِ مدمج هنا
+crypto = CryptoPay("591551:AAaCLeCJ3KRPZbR6Cj6Dg1eqq1iLisbkz7P")
+
 API_KEY = "b31916beaf30a275e6195d4ba79941a2"
 API_URL = "https://xklash.com/api/v2"
 
-# بيانات الباقات
-PACKAGES = {"100 عضو": 100, "500 عضو": 500, "1000 عضو": 1000}
-user_temp_qty = {}
-
-# 1. زر الترحيب والبدء (القائمة الرئيسية)
+# 1. القائمة الرئيسية (20 زر)
 def main_menu():
-    markup = InlineKeyboardMarkup()
-    for text, qty in PACKAGES.items():
-        markup.add(InlineKeyboardButton(f"🛒 شراء {text}", callback_data=f"qty_{qty}"))
-    markup.add(InlineKeyboardButton("🎧 تواصل مع الدعم الفني", url="https://t.me/Jama2006A82"))
+    markup = InlineKeyboardMarkup(row_width=2)
+    for i in range(1, 21):
+        markup.add(InlineKeyboardButton(f"خدمة رقم {i}", callback_data=f"service_{i}"))
+    markup.add(InlineKeyboardButton("⬅️ العودة للرئيسية", callback_data="back_main"))
     return markup
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    # لوحة أزرار سفلية إضافية (مثل بوت تمويل الدينار)
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton("🚀 تمويلاتي"), KeyboardButton("💰 رصيد الموقع"))
-    
-    welcome_text = (
-        "🔥 **أهلاً بك في بوت ليفاندوسكي 9** 🔥\n\n"
-        "أفضل خدمات التمويل الحقيقي.\n"
-        "اختر باقتك من الأزرار أدناه:"
-    )
-    bot.send_message(message.chat.id, welcome_text, reply_markup=main_menu(), parse_mode="Markdown")
-    bot.send_message(message.chat.id, "لوحة التحكم:", reply_markup=keyboard)
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("🛒 المتجر", "💳 شحن الرصيد", "👤 حسابي")
+    bot.send_message(message.chat.id, "🔥 أهلاً بك في بوت ليفاندوسكي 9\nاختر من القائمة:", reply_markup=kb)
 
-# 2. كود الاستعلام عن الرصيد
-@bot.message_handler(func=lambda m: m.text == "💰 رصيد الموقع")
-def check_balance(message):
-    data = {'key': API_KEY, 'action': 'balance'}
+# 2. نظام الشحن عبر CryptoBot
+@bot.message_handler(func=lambda m: m.text == "💳 شحن الرصيد")
+def deposit(message):
     try:
-        res = requests.post(API_URL, data=data).json()
-        bal = round(float(res.get('balance', 0)) * 14.3, 2)
-        bot.reply_to(message, f"💰 رصيد البوت الحالي في الموقع هو: {bal} دولار")
-    except:
-        bot.reply_to(message, "❌ خطأ في الاتصال بالموقع.")
+        # إنشاء فاتورة بقيمة 1 دولار (يمكنك تغيير المبلغ)
+        invoice = crypto.create_invoice(asset="USDT", amount=1)
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("ادفع الآن عبر CryptoBot", url=invoice.pay_url))
+        bot.reply_to(message, "اضغط على الزر أدناه لإتمام عملية الشحن:", reply_markup=markup)
+    except Exception as e:
+        bot.reply_to(message, "حدث خطأ في إنشاء الفاتورة، تأكدي من إعدادات الـ API.")
 
-# 3. كود اختيار الباقة
-@bot.callback_query_handler(func=lambda call: call.data.startswith("qty_"))
-def handle_qty(call):
-    qty = call.data.split("_")[1]
-    user_temp_qty[call.message.chat.id] = qty
-    bot.answer_callback_query(call.id, f"تم اختيار {qty} عضو")
-    bot.send_message(call.message.chat.id, "✅ الآن أرسل رابط القناة التي تريد تمويلها وسأبدأ فوراً!")
+# 3. معالجة الأزرار والخدمات
+@bot.message_handler(func=lambda m: m.text == "🛒 المتجر")
+def shop(message):
+    bot.send_message(message.chat.id, "اختر الخدمة المطلوبة:", reply_markup=main_menu())
 
-# 4. كود التمويل (التنفيذ التلقائي)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("service_"))
+def handle_service(call):
+    service_id = call.data.split("_")[1]
+    bot.answer_callback_query(call.id, f"تم اختيار الخدمة {service_id}")
+    bot.send_message(call.message.chat.id, f"✅ تم اختيار الخدمة {service_id}.\nأرسل رابط القناة الآن للتنفيذ.")
+
+# 4. تنفيذ التمويل
 @bot.message_handler(func=lambda m: "t.me" in m.text)
-def execute_order(m):
-    qty = user_temp_qty.get(m.chat.id)
-    if not qty:
-        bot.reply_to(m, "❌ يرجى اختيار الباقة أولاً من قائمة الشراء.")
-        return
-
-    msg = bot.reply_to(m, "⏳ جاري تنفيذ الطلب، يرجى الانتظار...")
-    data = {'key': API_KEY, 'action': 'add', 'service': 16225, 'link': m.text, 'quantity': int(qty)}
+def auto_order(m):
+    msg = bot.reply_to(m, "⏳ جاري تنفيذ طلبك...")
+    data = {'key': API_KEY, 'action': 'add', 'service': 16225, 'link': m.text, 'quantity': 100}
     res = requests.post(API_URL, data=data).json()
     
     if 'order' in res:
-        bot.edit_message_text(f"✅ **تم تنفيذ الطلب بنجاح!**\n🆔 رقم الطلب: {res['order']}", m.chat.id, msg.message_id, parse_mode="Markdown")
-        user_temp_qty.pop(m.chat.id, None)
+        bot.edit_message_text(f"✅ **تم التنفيذ بنجاح!**\nرقم الطلب: {res['order']}", m.chat.id, msg.message_id)
     else:
-        bot.edit_message_text(f"❌ **حدث خطأ:** {res.get('error', 'غير معروف')}", m.chat.id, msg.message_id, parse_mode="Markdown")
+        bot.edit_message_text(f"❌ خطأ: {res.get('error', 'غير معروف')}", m.chat.id, msg.message_id)
 
 bot.infinity_polling()
+
 
 
 
