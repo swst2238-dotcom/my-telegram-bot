@@ -1,61 +1,78 @@
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 import os
 
+# إعدادات البوت والموقع
 TOKEN = os.environ.get('API_TOKEN')
 bot = telebot.TeleBot(TOKEN)
-
 API_KEY = "b31916beaf30a275e6195d4ba79941a2"
 API_URL = "https://xklash.com/api/v2"
 
-def get_balance():
-    data = {'key': API_KEY, 'action': 'balance'}
-    try:
-        res = requests.post(API_URL, data=data).json()
-        raw = float(res.get('balance', 0))
-        return round(raw * 14.3, 2)
-    except:
-        return 0
+# الباقات المتاحة
+PACKAGES = {
+    "100 عضو": 100,
+    "500 عضو": 500,
+    "1000 عضو": 1000
+}
+
+# تخزين مؤقت للطلبات
+user_temp_qty = {}
+
+# قائمة الأزرار الرئيسية
+def get_main_markup():
+    markup = InlineKeyboardMarkup()
+    for text, qty in PACKAGES.items():
+        markup.add(InlineKeyboardButton(f"🛒 شراء {text}", callback_data=f"qty_{qty}"))
+    markup.add(InlineKeyboardButton("🎧 تواصل مع الدعم الفني", url="https://t.me/Jama2006A82"))
+    return markup
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    balance = get_balance()
-    markup = telebot.types.InlineKeyboardMarkup()
-    # زر بدء التمويل
-    btn = telebot.types.InlineKeyboardButton("🚀 بدء التمويل الآن", callback_data="start_order")
-    markup.add(btn)
-    
     welcome_text = (
-        f"مرحباً بك في بوت التمويل الآلي 🤖\n\n"
-        f"💰 رصيد البوت الحالي: {balance} دولار\n"
-        f"---------------------------\n"
-        "اضغط على الزر أدناه لبدء عملية التمويل."
+        "🔥 **أهلاً بك في بوت تمويل ليفاندوسكي 9** 🔥\n\n"
+        "بوتك الأول لخدمات التمويل الحقيقي.\n"
+        "اختر باقتك من القائمة أدناه، ولأي استفسار تواصل معنا عبر الدعم الفني."
     )
-    bot.send_message(message.chat.id, welcome_text, reply_markup=markup)
+    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_markup(), parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "start_order")
-def callback_start(call):
-    bot.answer_callback_query(call.id, "جاري التحضير...")
-    bot.send_message(call.message.chat.id, "✅ ممتاز! الآن أرسل رابط القناة (رابط تليجرام) التي تريد تمويلها وسأقوم بالباقي.")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("qty_"))
+def handle_qty(call):
+    qty = call.data.split("_")[1]
+    user_temp_qty[call.message.chat.id] = qty
+    bot.answer_callback_query(call.id, f"تم اختيار {qty} عضو")
+    bot.send_message(call.message.chat.id, f"✅ تم اختيار باقة {qty} عضو.\nأرسل رابط القناة الآن وسأبدأ فوراً!")
 
 @bot.message_handler(func=lambda m: "t.me" in m.text)
-def auto_order(m):
-    balance = get_balance()
-    if balance < 0.1:
-        bot.reply_to(m, "⚠️ الرصيد منخفض جداً، يرجى التواصل مع الإدارة.")
+def execute_order(m):
+    qty = user_temp_qty.get(m.chat.id)
+    if not qty:
+        bot.reply_to(m, "❌ يرجى اختيار الباقة أولاً من زر /start")
         return
 
-    msg = bot.reply_to(m, "⏳ جاري تنفيذ الطلب، يرجى الانتظار...")
+    msg = bot.reply_to(m, "⏳ جاري الإرسال للموقع، يرجى الانتظار...")
     
-    data = {'key': API_KEY, 'action': 'add', 'service': 16225, 'link': m.text, 'quantity': 100}
+    data = {
+        'key': API_KEY,
+        'action': 'add',
+        'service': 16225, 
+        'link': m.text,
+        'quantity': int(qty)
+    }
+    
     res = requests.post(API_URL, data=data).json()
     
     if 'order' in res:
-        bot.edit_message_text(f"✅ تم التنفيذ بنجاح!\n🆔 رقم الطلب: {res['order']}", m.chat.id, msg.message_id)
+        bot.edit_message_text(f"✅ **تم تنفيذ طلب ليفاندوسكي بنجاح!**\n🆔 رقم الطلب: {res['order']}", m.chat.id, msg.message_id, parse_mode="Markdown")
+        user_temp_qty.pop(m.chat.id, None)
     else:
-        bot.edit_message_text(f"❌ خطأ من الموقع: {res.get('error', 'غير معروف')}", m.chat.id, msg.message_id)
+        error_msg = res.get('error', 'خطأ غير معروف')
+        bot.edit_message_text(f"❌ **حدث خطأ:** {error_msg}", m.chat.id, msg.message_id, parse_mode="Markdown")
 
-bot.infinity_polling()
+# تشغيل البوت
+if __name__ == "__main__":
+    bot.infinity_polling()
+
 
 
 
