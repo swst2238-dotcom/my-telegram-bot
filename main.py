@@ -1,8 +1,3 @@
-
-
-
-
-
 import telebot
 import requests
 import os
@@ -53,6 +48,7 @@ def send_to_xklash(m):
         bot.reply_to(m, f"❌ حدث خطأ تقني: {e}")
 
 bot.infinity_polling()
+
 
 
 
