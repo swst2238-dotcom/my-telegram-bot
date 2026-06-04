@@ -5,49 +5,48 @@ import os
 TOKEN = os.environ.get('API_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# تم تحديث المفتاح بالمفتاح الجديد الذي أرسلتِه
-API_KEY = "b31916beaf30a275e6195d4ba79941a2" 
+API_KEY = "b31916beaf30a275e6195d4ba79941a2"
 API_URL = "https://xklash.com/api/v2"
+
+# PRODUCTS = { "العدد": [تكلفة الموقع، سعركِ للعميل] }
+# يمكنكِ تعديل السعر الثاني (سعر العميل) لزيادة ربحكِ
+PRODUCTS = {
+    "10": [0.02, 1],   # مثال: تكلفة الموقع 0.02، تبيعين بـ 1 نجمة
+    "50": [0.10, 3],
+    "100": [0.20, 5]
+}
 
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = telebot.types.InlineKeyboardMarkup()
-    btn = telebot.types.InlineKeyboardButton("بدء طلب التمويل الآن", callback_data="start_proc")
-    markup.add(btn)
-    bot.send_message(message.chat.id, "مرحباً بك! اضغط الزر أدناه لبدء الطلب:", reply_markup=markup)
+    for count in PRODUCTS:
+        price = PRODUCTS[count][1]
+        markup.add(telebot.types.InlineKeyboardButton(f"{count} عضو بـ {price} نجمة", callback_data=f"buy_{count}"))
+    bot.send_message(message.chat.id, "مرحباً! اختر الكمية التي تريد تمويلها:", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data == "start_proc")
-def process_step(call):
-    bot.answer_callback_query(call.id, text="جاري الفتح...")
+# تخزين مؤقت للكمية المطلوبة
+user_selected_qty = {}
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def process_order(call):
+    count = call.data.split("_")[1]
+    price = PRODUCTS[count][1]
+    user_selected_qty[call.message.chat.id] = count
+    
+    bot.answer_callback_query(call.id)
     bot.send_message(call.message.chat.id, 
-        "⭐ لطلب 100 عضو:\n\n"
-        "1. قم بتحويل المقابل المادي لحسابي: @Jama2006A82\n"
-        "2. بعد التحويل، أرسل كلمة 'تم التحويل' هنا.")
-
-@bot.message_handler(func=lambda message: message.text == "تم التحويل")
-def ask_for_link(message):
-    bot.reply_to(message, "✅ ممتاز! أرسل الآن رابط القناة التي تريد تمويلها وسأبدأ فوراً:")
+        f"✅ اخترت {count} عضو.\n"
+        f"💰 السعر المطلوب: {price} نجمة.\n\n"
+        "يرجى التحويل لحسابي @Jama2006A82 ثم أرسل رابط قناتك هنا للبدء.")
 
 @bot.message_handler(func=lambda m: "t.me" in m.text)
-def send_to_xklash(m):
-    bot.reply_to(m, "⏳ جارٍ الإرسال للموقع، يرجى الانتظار...")
-    data = {
-        'key': API_KEY,
-        'action': 'add',
-        'service': 16234,  # الخدمة الصحيحة التي اخترناها
-        'link': m.text,
-        'quantity': 100
-    }
-    try:
-        res = requests.post(API_URL, data=data).json()
-        if 'order' in res:
-            bot.reply_to(m, f"✅ تم تنفيذ الطلب بنجاح! رقم الطلب هو: {res['order']}")
-        else:
-            bot.reply_to(m, f"❌ خطأ من الموقع: {res}")
-    except Exception as e:
-        bot.reply_to(m, f"❌ حدث خطأ تقني: {e}")
+def execute_order(m):
+    count = user_selected_qty.get(m.chat.id, "10")
+    bot.reply_to(m, f"⏳ جاري تمويل {count} عضو...")
+    
+    data = {'key': API_KEY, 'action': 'add', 'service': 16234, 'link': m.text, 'quantity': int(count)}
+    res = requests.post(API_URL, data=data
 
-bot.infinity_polling()
 
 
 
