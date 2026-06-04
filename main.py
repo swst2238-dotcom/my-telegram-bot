@@ -1,7 +1,7 @@
 from telebot import TeleBot, types
 
 # استبدلي هذا بـ Token الخاص ببوتكِ
-bot = TeleBot('TOKEN_BOT_HERE')
+bot = TeleBot('8822332836:AAENA3zWg6PuGq07QgmxbrlTu6GqYBZuQV0')
 ADMIN_ID = '5531196107'
 
 # جدول الأسعار بالنجوم
