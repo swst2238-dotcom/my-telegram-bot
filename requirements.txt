@@ -1,3 +1,2 @@
 pyTelegramBotAPI
 requests
-py-cryptopay
