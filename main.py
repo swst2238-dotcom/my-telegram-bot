@@ -1,3 +1,8 @@
+
+
+
+
+
 import telebot
 import requests
 import os
@@ -5,8 +10,8 @@ import os
 TOKEN = os.environ.get('API_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# مفتاح الـ API الخاص بكِ
-API_KEY = "65361371be2f02279470ed1387d7" 
+# تم تحديث المفتاح بالمفتاح الجديد الذي أرسلتِه
+API_KEY = "b31916beaf30a275e6195d4ba79941a2" 
 API_URL = "https://xklash.com/api/v2"
 
 @bot.message_handler(commands=['start'])
@@ -30,28 +35,24 @@ def ask_for_link(message):
 
 @bot.message_handler(func=lambda m: "t.me" in m.text)
 def send_to_xklash(m):
-    bot.reply_to(m, "⏳ جارٍ الإرسال للموقع...")
+    bot.reply_to(m, "⏳ جارٍ الإرسال للموقع، يرجى الانتظار...")
     data = {
         'key': API_KEY,
         'action': 'add',
-        'service': 16234,  # <-- قمتُ بتحديث الرقم هنا ليطابق موقعكِ
+        'service': 16234,  # الخدمة الصحيحة التي اخترناها
         'link': m.text,
         'quantity': 100
     }
     try:
         res = requests.post(API_URL, data=data).json()
         if 'order' in res:
-            bot.reply_to(m, f"✅ تم تنفيذ الطلب! رقم الطلب: {res['order']}")
+            bot.reply_to(m, f"✅ تم تنفيذ الطلب بنجاح! رقم الطلب هو: {res['order']}")
         else:
-            # هنا سيظهر لكِ نص الخطأ الحقيقي من الموقع إذا فشل مرة أخرى
             bot.reply_to(m, f"❌ خطأ من الموقع: {res}")
     except Exception as e:
         bot.reply_to(m, f"❌ حدث خطأ تقني: {e}")
 
 bot.infinity_polling()
-
-
-
 
 
 
